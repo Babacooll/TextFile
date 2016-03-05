@@ -5,6 +5,9 @@
     "autoload": {
         "psr-4": {"TextFile\\": "src/"}
     },
+    "keywords": [
+        "text file", "text" , "file", "manipulation", "text file manipulation"
+    ],
     "authors": [
         {
             "name": "Michaël Garrez",
