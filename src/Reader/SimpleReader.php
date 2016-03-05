@@ -80,7 +80,9 @@ class SimpleReader implements ReaderInterface
     {
         $file->seek($file->key());
 
-        return $this->cleanLineContent($file->current());
+        $content = $file->current();
+
+        return $this->cleanLineContent(is_string($content) ? $content : '');
     }
 
     /**
