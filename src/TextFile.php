@@ -2,9 +2,17 @@
 
 namespace TextFile;
 
-use Symfony\Component\Filesystem\Exception\FileNotFoundException;
 use Symfony\Component\Filesystem\Filesystem;
+use TextFile\Exception\InvalidReaderException;
+use TextFile\Exception\InvalidWalkerException;
+use TextFile\Exception\InvalidWriterException;
 use TextFile\Exception\OutOfBoundsException;
+use TextFile\Factory\ReaderFactory;
+use TextFile\Factory\WalkerFactory;
+use TextFile\Factory\WriterFactory;
+use TextFile\Reader\SimpleReader;
+use TextFile\Walker\SimpleWalker;
+use TextFile\Writer\PrependingWriter;
 
 /**
  * Class TextFile
@@ -16,264 +24,232 @@ class TextFile
     const MODE_WRITE_PREPEND = 'prepend';
     const MODE_WRITE_REPLACE = 'replace';
 
-    /**
-     * @var \SplFileObject
-     */
+    /** @var \SplFileObject */
     protected $splFileObject;
 
-    /**
-     * @var string
-     */
+    /** @var string */
     protected $fileName;
 
-    /**
-     * @var Filesystem
-     */
+    /** @var Filesystem */
     protected $fileSystem;
 
-    /**
-     * @var bool
-     */
-    protected $isRealFile = false;
-
-    /**
-     * @var int
-     */
+    /** @var int */
     protected $currentLine = 0;
+
+    /** @var WriterFactory */
+    protected $writerFactory;
+
+    /** @var WalkerFactory */
+    protected $walkerFactory;
+
+    /** @var ReaderFactory */
+    protected $readerFactory;
 
     /**
      * TextFile constructor.
      *
      * @param string $fileName
      */
-    public function __construct($fileName = null)
+    public function __construct($fileName)
     {
-        $this->fileSystem = new Filesystem();
-        $this->fileName   = $fileName;
+        $this->fileSystem    = new Filesystem();
+        $this->fileName      = $fileName;
+        $this->writerFactory = new WriterFactory();
+        $this->walkerFactory = new WalkerFactory();
+        $this->readerFactory = new ReaderFactory();
 
-        if ($fileName) {
-            $this->open($fileName);
-        } else {
-            $this->createEmpty();
-        }
+        $this->open($fileName);
     }
 
     /**
      * @param string $fileName
-     *
-     * @return TextFile
      */
     public function open($fileName)
     {
         if (!$this->fileSystem->exists($fileName)) {
-            throw new FileNotFoundException($fileName);
+            $this->createEmpty($fileName);
         }
 
         $this->splFileObject = new \SplFileObject($fileName, 'r+b');
-        $this->isRealFile = true;
-
-        return $this;
     }
 
     /**
-     * @return TextFile
+     * @param string $fileName
      */
-    public function createEmpty()
+    public function createEmpty($fileName)
     {
-        $this->splFileObject = new \SplFileObject('php://memory');
-        $this->isRealFile    = false;
-
-        return $this;
+        $this->fileSystem->touch($fileName);
     }
 
     /**
-     * @param int $from
-     * @param int $to
+     * @param int    $from
+     * @param int    $to
+     * @param string $readerClass
+     * @param string $walkerClass
      *
      * @return \LimitIterator
+     * @throws InvalidReaderException
+     * @throws InvalidWalkerException
      * @throws OutOfBoundsException
      */
-    public function getLinesRange($from, $to)
+    public function getLinesRange($from, $to, $readerClass = SimpleReader::class, $walkerClass = SimpleWalker::class)
     {
-        if ($from < 0 || $to > $this->countLines()) {
-            throw new OutOfBoundsException();
-        }
+        $walker = $this->walkerFactory->createWalker($walkerClass);
 
-        return new \LimitIterator($this->splFileObject, $from, $to);
+        return $this->readerFactory->createReader($readerClass, $walker)->getLinesRange($this->splFileObject, $from, $to);
     }
 
     /**
+     * @param string $walkerClass
+     *
      * @return int
+     * @throws InvalidWalkerException
      */
-    public function countLines()
+    public function countLines($walkerClass = SimpleWalker::class)
     {
-        $previous = $this->splFileObject->key();
-
-        $this->splFileObject->seek($this->splFileObject->getSize());
-
-        $count = $this->splFileObject->key();
-
-        $this->splFileObject->seek($previous);
-
-        return $count;
+        return $this->walkerFactory->createWalker($walkerClass)->countLines($this->splFileObject);
     }
 
     /**
-     * @param string $newFileName
+     * @param int    $lineNumber
+     * @param string $walkerClass
      *
-     * @return $this
-     */
-    public function save($newFileName = null)
-    {
-        if (!$this->isRealFile && !$newFileName) {
-            // TODO : Throw exception
-        }
-
-        $this->splFileObject->fflush();
-
-        $this->isRealFile = true;
-
-        return $this;
-    }
-
-    /**
-     * @param int $lineNumber
-     *
-     * @return $this
      * @throws OutOfBoundsException
+     * @throws InvalidWalkerException
      */
-    public function goToLine($lineNumber)
+    public function goToLine($lineNumber, $walkerClass = SimpleWalker::class)
     {
-        if ($lineNumber < 0 || $lineNumber > $this->countLines()) {
-            throw new OutOfBoundsException();
-        }
-
-        $this->splFileObject->rewind();
-
-        for ($i = 0; $i < $lineNumber; $i++) {
-            $this->splFileObject->next();
-            $this->splFileObject->current();
-        }
-
-        return $this;
+        $this->walkerFactory->createWalker($walkerClass)->goToLine($this->splFileObject, $lineNumber);
     }
 
     /**
-     * @param int $characterNumber
+     * @param int    $characterNumber
+     * @param string $walkerClass
      *
      * @return string
      * @throws OutOfBoundsException
      */
-    public function goToCharacter($characterNumber)
+    public function goBeforeCharacter($characterNumber, $walkerClass = SimpleWalker::class)
     {
-        $originalLne = $this->splFileObject->key();
-
-        $this->goToLine($originalLne);
-
-        if ($characterNumber < 0) {
-            throw new OutOfBoundsException();
-        }
-
-        for ($i = 0; $i <= $characterNumber; $i++) {
-            $character = $this->splFileObject->fgetc();
-        }
-
-        if ($this->splFileObject->key() !== $originalLne) {
-            throw new OutOfBoundsException();
-        }
-
-        return $character;
+        $this->walkerFactory->createWalker($walkerClass)->goBeforeCharacter($this->splFileObject, $characterNumber);
     }
 
     /**
+     * @param string $readerClass
+     * @param string $walkerClass
+     *
      * @return string
+     * @throws InvalidReaderException
      * @throws OutOfBoundsException
      */
-    public function getNextLineContent()
+    public function getNextLineContent($readerClass = SimpleReader::class, $walkerClass = SimpleWalker::class)
     {
-        if ($this->splFileObject->key() + 1 > $this->countLines()) {
-            throw new OutOfBoundsException();
-        }
+        $walker = $this->walkerFactory->createWalker($walkerClass);
 
-        $this->splFileObject->next();
-
-        $content = $this->cleanLineContent($this->splFileObject->current());
-
-        $this->goToLine($this->splFileObject->key() - 1);
-
-        return $content;
+        return $this->readerFactory->createReader($readerClass, $walker)->getNextLineContent($this->splFileObject);
     }
 
     /**
+     * @param string $readerClass
+     * @param string $walkerClass
+     *
      * @return string
+     * @throws InvalidReaderException
      * @throws OutOfBoundsException
      */
-    public function getPreviousLineContent()
+    public function getPreviousLineContent($readerClass = SimpleReader::class, $walkerClass = SimpleWalker::class)
     {
-        if ($this->splFileObject->key() - 1 < 0) {
-            throw new OutOfBoundsException();
-        }
+        $walker = $this->walkerFactory->createWalker($walkerClass);
 
-        $this->splFileObject->seek($this->splFileObject->key() - 1);
-
-        $content = $this->cleanLineContent($this->splFileObject->current());
-
-        $this->goToLine($this->splFileObject->key() + 1);
-
-        return $content;
+        return $this->readerFactory->createReader($readerClass, $walker)->getPreviousLineContent($this->splFileObject);
     }
 
     /**
+     * @param string $readerClass
+     * @param string $walkerClass
+     *
      * @return string
+     * @throws InvalidReaderException
+     * @throws OutOfBoundsException
      */
-    public function getCurrentLineContent()
+    public function getCurrentLineContent($readerClass = SimpleReader::class, $walkerClass = SimpleWalker::class)
     {
-        $this->splFileObject->seek($this->splFileObject->key());
+        $walker = $this->walkerFactory->createWalker($walkerClass);
 
-        return $this->cleanLineContent($this->splFileObject->current());
+        return $this->readerFactory->createReader($readerClass, $walker)->getCurrentLineContent($this->splFileObject);
+    }
+
+    /**
+     * @param int    $lineNumber
+     * @param string $readerClass
+     * @param string $walkerClass
+     *
+     * @return string
+     * @throws InvalidReaderException
+     * @throws OutOfBoundsException
+     */
+    public function getLineContent($lineNumber, $readerClass = SimpleReader::class, $walkerClass = SimpleWalker::class)
+    {
+        $walker = $this->walkerFactory->createWalker($walkerClass);
+
+        return $this->readerFactory->createReader($readerClass, $walker)->getLineContent($this->splFileObject, $lineNumber);
+    }
+
+    /**
+     * @param string $readerClass
+     * @param string $walkerClass
+     *
+     * @return string
+     * @throws InvalidReaderException
+     * @throws OutOfBoundsException
+     */
+    public function getNextCharacterContent($readerClass = SimpleReader::class, $walkerClass = SimpleWalker::class)
+    {
+        $walker = $this->walkerFactory->createWalker($walkerClass);
+
+        return $this->readerFactory->createReader($readerClass, $walker)->getNextCharacterContent($this->splFileObject);
+    }
+
+    /**
+     * @param string $readerClass
+     * @param string $walkerClass
+     *
+     * @return string
+     * @throws InvalidReaderException
+     * @throws OutOfBoundsException
+     */
+    public function getPreviousCharacterContent($readerClass = SimpleReader::class, $walkerClass = SimpleWalker::class)
+    {
+        $walker = $this->walkerFactory->createWalker($walkerClass);
+
+        return $this->readerFactory->createReader($readerClass, $walker)->getPreviousCharacterContent($this->splFileObject);
+    }
+
+    /**
+     * @param int    $characterNumber
+     * @param string $readerClass
+     * @param string $walkerClass
+     *
+     * @return string
+     * @throws InvalidReaderException
+     * @throws OutOfBoundsException
+     */
+    public function getCharacterContent($characterNumber, $readerClass = SimpleReader::class, $walkerClass = SimpleWalker::class)
+    {
+        $walker = $this->walkerFactory->createWalker($walkerClass);
+
+        return $this->readerFactory->createReader($readerClass, $walker)->getCharacterContent($this->splFileObject, $characterNumber);
     }
 
     /**
      * @param string $content
-     * @param string $mode
      * @param bool   $newLine
-     */
-    public function writeToLine($content, $mode = self::MODE_WRITE_PREPEND, $newLine = false)
-    {
-        if ($mode === self::MODE_WRITE_PREPEND) {
-            $originalSeek = $this->splFileObject->ftell();
-
-            // Refresh file size
-            clearstatcache($this->fileName);
-
-            $contentAfter = $this->splFileObject->fread($this->splFileObject->getSize() - $this->splFileObject->ftell());
-
-            $this->splFileObject->fseek($originalSeek);
-
-            $this->splFileObject->fwrite($content . ($newLine ? PHP_EOL : ''));
-
-            $this->splFileObject->fwrite($contentAfter);
-        } else {
-            $this->splFileObject->fwrite($content);
-        }
-    }
-
-    /**
-     * @param string $content
-     * @param string $mode
-     */
-    public function writeToNewLine($content, $mode = self::MODE_WRITE_PREPEND)
-    {
-        $this->writeToLine($content, $mode, true);
-    }
-
-    /**
-     * @param string $content
+     * @param string $writerClass
      *
-     * @return string
+     * @throws InvalidWriterException
      */
-    protected function cleanLineContent($content)
+    public function writeToLine($content, $newLine = false, $writerClass = PrependingWriter::class)
     {
-        return trim($content);
+        $this->writerFactory->createWriter($writerClass)->write($this->splFileObject, $content, $newLine);
     }
 }
