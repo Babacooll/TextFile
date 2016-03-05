@@ -35,21 +35,14 @@ class SimpleWalker implements WalkerInterface
      */
     public function goBeforeCharacter(\SplFileObject $file, $characterNumber)
     {
-        // TODO : Allow to change line ?
-        $originalLine = $file->key();
+        $file->rewind();
 
-        $this->goToLine($file, $originalLine);
-
-        if ($characterNumber < 0) {
+        if ($characterNumber < 0 || $characterNumber > $file->getSize()) {
             throw new OutOfBoundsException();
         }
 
         for ($i = 0; $i <= $characterNumber - 1; $i++) {
             $file->fgetc();
-        }
-
-        if ($file->key() !== $originalLine) {
-            throw new OutOfBoundsException();
         }
 
         return $file;
@@ -60,6 +53,9 @@ class SimpleWalker implements WalkerInterface
      */
     public function countLines(\SplFileObject $file)
     {
+        // Refresh file size
+        clearstatcache($file->getFilename());
+
         $previous = $file->key();
 
         $file->seek($file->getSize());

@@ -21,9 +21,6 @@ use TextFile\Writer\PrependingWriter;
  */
 class TextFile
 {
-    const MODE_WRITE_PREPEND = 'prepend';
-    const MODE_WRITE_REPLACE = 'replace';
-
     /** @var \SplFileObject */
     protected $splFileObject;
 
