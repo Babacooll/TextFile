@@ -38,19 +38,8 @@ class ReaderFactory
             throw new InvalidReaderException();
         }
 
-        $this->addReader($readerClass, $walker);
+        $this->readers[$readerClass][$walkerClassName] = new $readerClass($walker);
 
         return $this->readers[$readerClass][$walkerClassName];
-    }
-
-    /**
-     * @param string          $readerClass
-     * @param WalkerInterface $walker
-     */
-    protected function addReader($readerClass, WalkerInterface $walker)
-    {
-        $walkerClassName = get_class($walker);
-
-        $this->readers[$readerClass][$walkerClassName] = new $readerClass($walker);
     }
 }

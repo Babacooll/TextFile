@@ -30,6 +30,36 @@ class SimpleReaderTest extends TextFileTestCase
     }
 
     /**
+     * @covers TextFile\Reader\SimpleReader::getLinesRange
+     *
+     * @expectedException \TextFile\Exception\OutOfBoundsException
+     */
+    public function testGetLinesRangeOutOfBoundsTooLow()
+    {
+        $reader = new SimpleReader(new SimpleWalker());
+
+        $filePath = $this->createTestFileFromFixtures('complex_multiline_file.txt');
+        $file     = new \SplFileObject($filePath, 'r+');
+
+        $reader->getLinesRange($file, -1, 2);
+    }
+
+    /**
+     * @covers TextFile\Reader\SimpleReader::getLinesRange
+     *
+     * @expectedException \TextFile\Exception\OutOfBoundsException
+     */
+    public function testGetLinesRangeOutOfBoundsTooHigh()
+    {
+        $reader = new SimpleReader(new SimpleWalker());
+
+        $filePath = $this->createTestFileFromFixtures('complex_multiline_file.txt');
+        $file     = new \SplFileObject($filePath, 'r+');
+
+        $reader->getLinesRange($file, 0, 20);
+    }
+
+    /**
      * @covers TextFile\Reader\SimpleReader::getNextLineContent
      */
     public function testGetNextLineContentFromStart()
@@ -224,7 +254,7 @@ class SimpleReaderTest extends TextFileTestCase
     }
 
     /**
-     * @covers TextFile\Reader\SimpleReader::getPreviousCharacterContent
+     * @covers TextFile\Reader\SimpleReader::cleanLineContent
      */
     public function testCleanLineContent()
     {

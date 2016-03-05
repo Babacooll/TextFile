@@ -33,16 +33,8 @@ class WriterFactory
             throw new InvalidWriterException();
         }
 
-        $this->addWriter($writerClass);
+        $this->writers[$writerClass] = new $writerClass;
 
         return $this->writers[$writerClass];
-    }
-
-    /**
-     * @param string $writerClass
-     */
-    protected function addWriter($writerClass)
-    {
-        $this->writers[$writerClass] = new $writerClass;
     }
 }

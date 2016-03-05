@@ -71,11 +71,11 @@ class TextFile
     }
 
     /**
-     * @param string $fileName
+     * @return \SplFileObject
      */
-    public function createEmpty($fileName)
+    public function getSplFileObject()
     {
-        $this->fileSystem->touch($fileName);
+        return $this->splFileObject;
     }
 
     /**
@@ -248,5 +248,13 @@ class TextFile
     public function writeToLine($content, $newLine = false, $writerClass = PrependingWriter::class)
     {
         $this->writerFactory->createWriter($writerClass)->write($this->splFileObject, $content, $newLine);
+    }
+
+    /**
+     * @param string $fileName
+     */
+    protected function createEmpty($fileName)
+    {
+        $this->fileSystem->touch($fileName);
     }
 }

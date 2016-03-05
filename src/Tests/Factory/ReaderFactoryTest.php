@@ -35,6 +35,7 @@ class ReaderFactoryTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @covers TextFile\Factory\ReaderFactory::createReader
+     *
      * @expectedException \TextFile\Exception\InvalidReaderException
      */
     public function testCreateReaderInvalidReader()

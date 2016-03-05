@@ -33,16 +33,8 @@ class WalkerFactory
             throw new InvalidWalkerException();
         }
 
-        $this->addWalker($walkerClass);
+        $this->walkers[$walkerClass] = new $walkerClass;
 
         return $this->walkers[$walkerClass];
-    }
-
-    /**
-     * @param string $walkerClass
-     */
-    protected function addWalker($walkerClass)
-    {
-        $this->walkers[$walkerClass] = new $walkerClass;
     }
 }

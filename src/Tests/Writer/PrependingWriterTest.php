@@ -49,6 +49,25 @@ class PrependingWriterTest extends TextFileTestCase
     }
 
     /**
+     * @covers TextFile\Writer\PrependingWriter::write
+     */
+    public function testWriteEnd()
+    {
+        $prependingWriter = new PrependingWriter();
+
+        $filePath = $this->createTestFileFromFixtures('complex_singleline_file.txt');
+        $file     = new \SplFileObject($filePath, 'r+');
+
+        $file->fseek(27);
+
+        $prependingWriter->write($file, 'test');
+
+        $file->rewind();
+
+        $this->assertEquals('firstsecondthirdfourthfifthtest', trim($file->current()));
+    }
+
+    /**
      * @covers TextFile\Writer\ErasingWriter::write
      */
     public function testWriteMiddleNewLine()
