@@ -88,7 +88,7 @@ class SimpleReader implements ReaderInterface
      */
     public function getLineContent(\SplFileObject $file, $lineNumber)
     {
-        if ($lineNumber > $this->walker->countLines($file)) {
+        if ($lineNumber > $this->walker->countLines($file) || $lineNumber < 0) {
             throw new OutOfBoundsException();
         }
 

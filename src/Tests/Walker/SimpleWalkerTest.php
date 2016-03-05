@@ -82,7 +82,7 @@ class SimpleWalkerTest extends TextFileTestCase
     }
 
     /**
-     * @covers TextFile\Walker\SimpleWalker::countLines
+     * @covers TextFile\Walker\SimpleWalker::goBeforeCharacter
      */
     public function testGoBeforeCharacter()
     {
